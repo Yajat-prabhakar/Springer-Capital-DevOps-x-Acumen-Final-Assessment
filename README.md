@@ -34,7 +34,8 @@ Output:
 Hello, DevOps!
 ```
 
-![GitHub repository](docs/01-github-repo.png)
+<img width="1885" height="945" alt="image" src="https://github.com/user-attachments/assets/9a59aeb4-1d9e-43ee-82a9-665396cf4014" />
+
 
 ---
 
@@ -61,7 +62,8 @@ C:\          475G  378G   98G  80% /mnt/c
 ...
 ```
 
-![sysinfo.sh output](docs/02-sysinfo.png)
+<img width="1774" height="859" alt="image" src="https://github.com/user-attachments/assets/b591741f-7ab7-4e16-ad31-a90568b0462d" />
+
 
 ---
 
@@ -89,7 +91,8 @@ Hello, DevOps!
 
 The image uses the `v1` tag instead of `latest`. This was required for the local Nomad setup because the Docker driver attempted to pull the `latest` image from a registry.
 
-![Docker build and run](docs/03-docker-run.png)
+<img width="1885" height="709" alt="image" src="https://github.com/user-attachments/assets/5209642e-8fb1-4c2e-a5f0-bfda99645790" />
+
 
 ---
 
@@ -112,9 +115,10 @@ The workflow:
 
 The workflow status can be checked from the **Actions** tab on GitHub.
 
-![GitHub Actions workflow runs](docs/04-ci-actions-list.png)
+<img width="1882" height="951" alt="image" src="https://github.com/user-attachments/assets/2f86c5ca-439c-4b33-917e-48b1257b64ce" />
 
-![CI run detail showing hello.py output](docs/04b-ci-run-detail.png)
+<img width="1858" height="858" alt="image" src="https://github.com/user-attachments/assets/a40c7833-bd43-46c5-b285-6c20ef2c95bb" />
+
 
 ---
 
@@ -267,7 +271,8 @@ $ nomad alloc logs ab069b41
 Hello, DevOps!
 ```
 
-![Nomad alloc status and logs](docs/05-nomad-run.png)
+<img width="1695" height="1012" alt="image" src="https://github.com/user-attachments/assets/2bca0fc2-981a-48b5-96d9-9996cc0dc30f" />
+
 
 ---
 
@@ -342,7 +347,8 @@ curl -G -s "http://localhost:3100/loki/api/v1/query_range" \
 ]
 ```
 
-![Loki query result](docs/07-loki-query.png)
+<img width="1887" height="828" alt="image" src="https://github.com/user-attachments/assets/cc33df42-3813-44ac-8210-5c08c89e88ac" />
+
 
 ---
 
@@ -386,7 +392,8 @@ epoch=5 accuracy=0.8891 loss=0.2358
 MLflow run complete.
 ```
 
-![MLflow run output](docs/06-mlflow-run.png)
+<img width="1782" height="232" alt="image" src="https://github.com/user-attachments/assets/2e8a8684-b6a3-474d-96d0-e04d48682c3c" />
+
 
 View the run:
 
@@ -438,7 +445,8 @@ $ nomad alloc logs 9600fd36
 Hello, DevOps!
 ```
 
-![Nomad run inside the Vagrant/VirtualBox VM](docs/08-vm-nomad-run.png)
+<img width="1365" height="880" alt="image" src="https://github.com/user-attachments/assets/fdf72a6e-7717-430b-81fb-95686474a503" />
+
 
 ---
 
