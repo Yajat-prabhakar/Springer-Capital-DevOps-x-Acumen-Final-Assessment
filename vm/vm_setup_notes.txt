@@ -1,78 +1,99 @@
 VM SETUP NOTES (Extra Credit)
-=============================
+===============================
 
 Goal: deploy a small VirtualBox VM and run the Docker/Nomad job from this
-repository inside it, as an alternative to running everything directly in
-WSL2.
+repo inside it, as an alternative to running everything directly in WSL2.
+
+Provisioned declaratively with Vagrant rather than manually through the
+VirtualBox GUI - see vm/Vagrantfile in this folder for the full config.
 
 1. VM creation
---------------
+---------------
+- Hypervisor: VirtualBox, via Vagrant
+- Base box: ubuntu/jammy64 (Ubuntu 22.04 LTS)
+- VM specs: 2 CPU cores, 2048 MB RAM (set in vm/Vagrantfile)
+- Network mode: private (host-only) network at 192.168.56.10, plus
+  Nomad's port 4646 forwarded to the host for UI/API access. Host-only
+  was chosen over bridged since this VM only needs to be reachable from
+  the host machine, not the wider LAN.
+- Brought up with:
 
-- Hypervisor: VirtualBox <version>
-- Base image/ISO: <e.g. Ubuntu Server 24.04 LTS>
-- VM specs: <CPU cores>, <RAM>, <disk size>
-- Network mode: <NAT / Bridged / Host-only> - <chosen mode, and why>
-
+    cd vm
+    vagrant up
 
 2. Base provisioning inside the VM
------------------------------------
-
-Commands run after first boot to install Docker and Nomad:
-
-    sudo apt update && sudo apt upgrade -y
+------------------------------------
+Handled automatically by the shell provisioner in vm/Vagrantfile on first
+`vagrant up` - no manual steps needed. It installs:
 
     # Docker
     curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
+    sh get-docker.sh
+    usermod -aG docker vagrant
 
     # Nomad
-    sudo apt install -y wget gpg
-    wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-    sudo apt update && sudo apt install -y nomad
-
+    apt-get install -y wget gpg lsb-release
+    wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
+    apt-get update && apt-get install -y nomad
 
 3. Getting the project into the VM
------------------------------------
+-------------------------------------
+Cloned directly from GitHub inside the VM (simpler than relying on the
+Vagrant synced folder across the Windows/WSL2/VirtualBox boundary):
 
-Chosen method:
-
-- git clone https://github.com/<your-username>/devops-intern-final.git
-
-Alternative methods:
-
-- VirtualBox shared folder mounted at <path>
-- scp the repository into the VM manually
-
+    vagrant ssh
+    git clone https://github.com/Yajat-prabhakar/Springer-Capital-DevOps-x-Acumen-Final-Assessment.git
+    cd Springer-Capital-DevOps-x-Acumen-Final-Assessment
 
 4. Running the pipeline inside the VM
--------------------------------------
-
-    cd devops-intern-final
-
+----------------------------------------
     docker build -t hello-devops:v1 .
-
     docker run --rm hello-devops:v1
 
     nomad agent -dev &
-
+    sleep 5
     nomad job run nomad/hello.nomad
-
     nomad job status hello
 
-
 5. Result
----------
+----------
+Docker build + run succeeded first:
 
-Paste the actual output here once the pipeline has been successfully
-executed inside the VM.
-
-Example:
-
-    Client Status = complete
-    ...
-
-    $ nomad alloc logs <alloc-id>
     Hello, DevOps!
 
+Nomad's Docker driver fingerprinted healthy on first boot inside the VM
+(no npipe/WSL issues here, since this is a native Linux VM):
+
+    driver=docker health=healthy description=Healthy
+
+Gotcha encountered: after the job ran once successfully, re-running
+`nomad job run` a second time (without rebuilding the image) failed with
+the same "pull access denied" error seen earlier in WSL2. This time the
+cause was different - Nomad's Docker driver garbage-collects local images
+once no running task references them anymore, so the locally-built
+hello-devops:v1 image was removed automatically after the first
+allocation finished. Rebuilding the image before each `nomad job run`
+(docker build -t hello-devops:v1 .) resolved it. A second gotcha: running
+`nomad job run` again with an unchanged job spec is a no-op (Nomad detects
+no version change and doesn't create a new allocation) - `nomad job stop
+-purge hello` before re-running forces a clean resubmission.
+
+With those two points handled, the job ran to completion cleanly:
+
+    Task event: type=Started msg="Task started by client"
+    Task event: type=Terminated msg="Exit Code: 0" failed=false
+
+    $ nomad alloc status c64401ec
+    Client Status = complete
+    Client Description = All tasks have completed
+
+    $ nomad alloc logs c64401ec
+    Hello, DevOps!
+
+This confirms the full Docker + Nomad pipeline runs correctly inside an
+isolated VM, independent of the WSL2 environment used earlier in this
+project.
+
+(Screenshot of the VM terminal running the above - optional, added
+separately.)
