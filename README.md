@@ -9,7 +9,7 @@ This repository contains the DevOps pipeline for the assessment.
 
 The pipeline covers:
 
-`Git repo` → `shell script` → `Docker image` → `CI pipeline` → `Nomad job` → `Loki logs`
+`Git repo` -> `shell script` -> `Docker image` -> `CI pipeline` -> `Nomad job` -? `Loki logs`
 ---
 
 ## 1. Git & GitHub Setup
