@@ -1,0 +1,127 @@
+LOKI MONITORING SETUP
+=====================
+
+1. How Loki was started
+-----------------------
+
+Loki was run locally using Docker and the official Grafana Loki image.
+It was exposed on port 3100:
+
+    docker run -d --name=loki -p 3100:3100 grafana/loki:2.9.0 \
+      -config.file=/etc/loki/local-config.yaml
+
+Loki was verified using:
+
+    curl http://localhost:3100/ready
+
+Expected output:
+
+    ready
+
+
+2. Log forwarding approach
+---------------------------
+
+The initial approach used Promtail with Docker service discovery to
+automatically discover and collect container logs through the Docker
+socket.
+
+Promtail was configured to access:
+
+    /var/run/docker.sock
+
+However, this approach encountered a Docker API version mismatch:
+
+    err="error while listing containers: Error response from daemon:
+    client version 1.42 is too old. Minimum supported API version is 1.44"
+
+Setting DOCKER_API_VERSION=1.44 for the Promtail container did not resolve
+the issue because the Docker service-discovery implementation used by
+Promtail did not negotiate the required API version through that
+environment variable.
+
+The working solution was to use Docker's native Loki logging driver.
+
+This approach sends container stdout and stderr directly to Loki without
+requiring a separate log-discovery layer.
+
+
+3. Installing the Loki Docker logging driver
+---------------------------------------------
+
+Install the Loki Docker logging plugin:
+
+    docker plugin install grafana/loki-docker-driver:latest \
+      --alias loki --grant-all-permissions
+
+The application container can then be started using the Loki logging
+driver:
+
+    docker run --rm --name hello-run \
+      --log-driver=loki \
+      --log-opt loki-url="http://host.docker.internal:3100/loki/api/v1/push" \
+      hello-devops:v1
+
+
+4. Viewing logs
+---------------
+
+Logs can be queried directly through Loki's HTTP API.
+
+The following command queries logs for the container named
+"hello-run":
+
+    curl -G -s "http://localhost:3100/loki/api/v1/query_range" \
+      --data-urlencode 'query={container_name="hello-run"}' \
+      --data-urlencode 'limit=20' | python3 -m json.tool
+
+
+5. Result
+---------
+
+The query returned the expected log stream, confirming successful
+end-to-end log collection:
+
+    Docker Container -> Loki Docker Driver -> Loki -> Query API
+
+Example result:
+
+    "stream": {
+        "container_name": "hello-run",
+        "filename": "/var/log/docker/<id>/json.log",
+        "host": "docker-desktop",
+        "source": "stdout"
+    },
+    "values": [
+        ["<timestamp>", "Hello, DevOps!"]
+    ]
+
+The captured log message was:
+
+    Hello, DevOps!
+
+
+6. Promtail configuration
+-------------------------
+
+The file:
+
+    monitoring/promtail-config.yaml
+
+is retained in the repository as documentation of the original
+Promtail-based approach.
+
+The final implementation uses Docker's native Loki logging driver
+because it successfully forwards container logs to Loki in the current
+Docker Desktop environment.
+
+
+7. Monitoring Architecture
+--------------------------
+
+The final monitoring pipeline is:
+ 
+    Application -> Docker Container -> Loki Docker Logging Driver -> Grafana Loki -> Loki HTTP API -> Log Query
+
+This confirms that the application's container output can be collected
+and retrieved from Loki successfully.
