@@ -1,0 +1,84 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure("2") do |config|
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
+
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://vagrantcloud.com/search.
+  config.vm.box = "ubuntu/jammy64"
+
+  # Disable automatic box update checking.
+  # config.vm.box_check_update = false
+
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine.
+  #
+  # Nomad's UI/API is forwarded to localhost:4646 on the host.
+  config.vm.network "forwarded_port", guest: 4646, host: 4646, host_ip: "127.0.0.1"
+
+  # Create a private network, which allows host-only access to the machine
+  # using a specific IP.
+  #
+  # This keeps the VM accessible from the host without exposing it directly
+  # to the external network.
+  config.vm.network "private_network", ip: "192.168.56.10"
+
+  # Create a public network, which generally matches to bridged networking.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+
+  # Share this project directory with the guest VM at /vagrant.
+  # This is enabled by default by Vagrant.
+  # config.vm.synced_folder ".", "/vagrant"
+
+  # Provider-specific configuration so you can fine-tune various
+  # backing providers for Vagrant.
+  #
+  # VirtualBox configuration:
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = "devops-intern-final-vm"
+    vb.memory = "2048"
+    vb.cpus = 2
+
+    # Display the VirtualBox GUI when booting the machine.
+    # vb.gui = true
+  end
+
+  # Enable provisioning with a shell script.
+  #
+  # The provisioning script installs Docker and Nomad automatically
+  # when the VM is created or provisioned.
+  config.vm.provision "shell", inline: <<-SHELL
+    set -e
+
+    apt-get update
+    apt-get upgrade -y
+
+    # --- Docker ---
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    usermod -aG docker vagrant
+
+    # --- Nomad ---
+    apt-get install -y wget gpg lsb-release
+
+    wget -O- https://apt.releases.hashicorp.com/gpg | \
+      gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+      | tee /etc/apt/sources.list.d/hashicorp.list
+
+    apt-get update
+    apt-get install -y nomad
+
+    echo "Provisioning complete: Docker and Nomad installed."
+  SHELL
+end
