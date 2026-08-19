@@ -3,290 +3,190 @@
 **Name:** Yajat Prabhakar
 **Date:** August 18, 2026
 
-## Project Overview
+## Project Description
 
-This repository demonstrates a small end-to-end DevOps pipeline using open-source tools.
+This repository contains the DevOps pipeline for the assessment.
 
-Each stage produces an artifact or result that is consumed by the next stage:
+The pipeline covers:
 
-```text
-Git Repository
-      ↓
-Shell Script
-      ↓
-Docker Image
-      ↓
-GitHub Actions CI
-      ↓
-Nomad Job
-      ↓
-Container Logs
-      ↓
-Grafana Loki
-```
-
-The project covers:
-
-* Git & GitHub
-* Linux and Bash scripting
-* Docker
-* CI/CD with GitHub Actions
-* Container orchestration with HashiCorp Nomad
-* Centralized log collection with Grafana Loki and Promtail
-
+`Git repo` → `shell script` → `Docker image` → `CI pipeline` → `Nomad job` → `Loki logs`
 ---
 
-# 1. Git & GitHub Setup
+## 1. Git & GitHub Setup
 
-The project is maintained in a public GitHub repository.
+The repository contains this README and `hello.py`.
 
-The repository contains the source code, shell scripts, Docker configuration, CI workflow, Nomad job specification, and monitoring configuration.
-
-### Application
-
-`hello.py` is a simple Python application that prints:
+`hello.py` prints:
 
 ```text
 Hello, DevOps!
 ```
 
-Run it locally:
+Run it directly:
 
 ```bash
 python3 hello.py
 ```
 
-Expected output:
+Output:
 
 ```text
 Hello, DevOps!
 ```
 
+![GitHub repository](docs/01-github-repo.png)
+
 ---
 
-# 2. Linux & Bash Scripting
+## 2. Linux & Scripting Basics
 
-The project includes a Bash script at:
+`scripts/sysinfo.sh` prints the current user, date, and disk usage.
 
-```text
-scripts/sysinfo.sh
-```
-
-The script displays:
-
-* Current user
-* Current date and time
-* Disk usage
-
-Make the script executable:
+Make it executable:
 
 ```bash
 chmod +x scripts/sysinfo.sh
-```
-
-Run it:
-
-```bash
 ./scripts/sysinfo.sh
 ```
 
-Example output:
+**Actual output:**
 
 ```text
 yajat
-Mon Aug 18 20:15:02 UTC 2026
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1        50G   12G   36G  25% /
+Wed Aug 19 05:57:59 UTC 2026
+Filesystem   Size  Used Avail Use% Mounted on
+none         4.9G     0  4.9G   0% /usr/lib/modules/...
+/dev/sdf     1007G  1.7G  954G   1% /
+C:\          475G  378G   98G  80% /mnt/c
+...
 ```
 
-The exact output will vary depending on the system running the script.
+![sysinfo.sh output](docs/02-sysinfo.png)
 
 ---
 
-# 3. Docker Containerization
+## 3. Docker Basics
 
-The application is containerized using Docker.
+The `Dockerfile` uses Python 3.12-slim as the base image and runs `hello.py`.
 
-The `Dockerfile` uses the lightweight Python 3.12 Slim image as its base image.
-
-### Build the image
+Build the image:
 
 ```bash
 docker build -t hello-devops:v1 .
 ```
 
-### Run the container
+Run it:
 
 ```bash
 docker run --rm hello-devops:v1
 ```
 
-Expected output:
+Output:
 
 ```text
 Hello, DevOps!
 ```
 
-### Why `v1` instead of `latest`?
+The image uses the `v1` tag instead of `latest`. This was required for the local Nomad setup because the Docker driver attempted to pull the `latest` image from a registry.
 
-The image is deliberately tagged as:
-
-```text
-hello-devops:v1
-```
-
-rather than:
-
-```text
-hello-devops:latest
-```
-
-This is important for the local Nomad deployment used in this assessment.
-
-Nomad's Docker driver treats the `latest` tag differently and may attempt to pull it from a registry even when a local image exists. Using an explicit version tag such as `v1`, together with:
-
-```hcl
-force_pull = false
-```
-
-allows Nomad to use the locally available image.
-
-This also follows a better DevOps practice of using explicit image versions rather than relying on the mutable `latest` tag.
-
-### Docker verification
-
-```bash
-docker images
-```
-
-The resulting image should contain:
-
-```text
-hello-devops
-v1
-```
+![Docker build and run](docs/03-docker-run.png)
 
 ---
 
-# 4. CI/CD with GitHub Actions
+## 4. CI/CD with GitHub Actions
 
-The repository contains the following GitHub Actions workflow:
+The workflow is located at:
 
 ```text
 .github/workflows/ci.yml
 ```
 
-The workflow runs automatically on:
+It runs on pushes and pull requests to `main`.
 
-* Pushes to `main`
-* Pull requests targeting `main`
-
-### CI Pipeline
-
-The workflow performs the following steps:
+The workflow:
 
 1. Checks out the repository.
 2. Sets up Python 3.12.
-3. Executes `hello.py`.
-4. Executes `scripts/sysinfo.sh`.
+3. Runs `python hello.py`.
+4. Runs `scripts/sysinfo.sh`.
 
-Conceptually:
+The workflow status can be checked from the **Actions** tab on GitHub.
 
-```text
-Git Push / Pull Request
-          ↓
-    GitHub Actions
-          ↓
-    Checkout Code
-          ↓
-   Setup Python 3.12
-          ↓
-      Run hello.py
-          ↓
-   Run sysinfo.sh
-          ↓
-       CI Result
-```
+![GitHub Actions workflow runs](docs/04-ci-actions-list.png)
 
-After pushing the repository, the workflow status can be verified from the **Actions** tab on GitHub.
+![CI run detail showing hello.py output](docs/04b-ci-run-detail.png)
 
 ---
 
-# 5. Job Deployment with HashiCorp Nomad
+## 5. Job Deployment with Nomad
 
-The Docker image created in Step 3 is deployed as a Nomad job.
-
-The job specification is located at:
+The Nomad job is defined in:
 
 ```text
 nomad/hello.nomad
 ```
 
-## Environment
+It runs the Docker image created in the previous step.
 
-This project was developed on Windows using Docker Desktop.
+### Environment
 
-Initially, the native Windows Nomad agent could not communicate correctly with Docker Desktop when Docker Desktop was operating in Linux-container mode. The Docker driver reported an unhealthy state because the native Windows environment expected a Windows-container Docker endpoint.
+The project was initially run on Windows. The native Windows Nomad agent could not communicate with Docker Desktop when Docker Desktop was using Linux containers. The Docker driver reported as unhealthy because it was looking for the Windows-container `npipe` endpoint.
 
-The issue was resolved by running the Nomad agent inside **WSL2 with Ubuntu**, while using Docker Desktop's WSL integration.
-
-This allows Nomad to communicate with Docker using the standard Linux Docker socket:
+The setup was moved to WSL2 with Docker Desktop's WSL integration. Nomad could then access Docker through:
 
 ```text
 unix:///var/run/docker.sock
 ```
 
-No additional Docker driver plugin configuration was required.
+No additional Docker driver configuration was needed.
 
----
+### Job Type: `batch`
 
-## Why the Nomad job uses `batch`
-
-The assessment brief suggests a:
+The assessment brief suggests:
 
 ```hcl
 type = "service"
 ```
 
-job.
+However, `hello.py` runs once and exits. A service job expects a long-running process, so Nomad restarted the task after each successful exit and eventually marked the allocation as failed after the restart attempts were exhausted.
 
-However, this application is a one-shot workload:
-
-```text
-hello.py
-    ↓
-prints "Hello, DevOps!"
-    ↓
-process exits
-```
-
-A Nomad `service` job is intended for long-running workloads. Therefore, Nomad attempts to restart the task when the process exits.
-
-Although the Python process exits successfully with:
-
-```text
-Exit Code: 0
-```
-
-a service workload is expected to remain running.
-
-For this reason, the project uses:
+The job therefore uses:
 
 ```hcl
 type = "batch"
 ```
 
-A `batch` job is appropriate for a finite workload because successful completion is represented as:
+A successful run exits with code `0` and the allocation is reported as `complete`.
+
+### Image Tag
+
+The first version of the job used:
 
 ```text
-Client Status = complete
+hello-devops:latest
 ```
 
-This makes the job type consistent with the actual behavior of the application.
+Nomad attempted to pull that image from a registry and returned:
 
----
+```text
+pull access denied ... repository does not exist
+```
 
-## Final Nomad Job
+The image was changed to:
+
+```text
+hello-devops:v1
+```
+
+with:
+
+```hcl
+force_pull = false
+```
+
+This allowed Nomad to use the locally built image.
+
+### Final Job File
 
 ```hcl
 job "hello" {
@@ -318,434 +218,261 @@ job "hello" {
 }
 ```
 
----
+### Prerequisites
 
-## Prerequisites
-
-Before running the Nomad job:
-
-1. Docker Desktop must be running.
-2. WSL2 must be installed and configured.
-3. Docker Desktop WSL integration must be enabled for Ubuntu.
-4. Nomad must be available inside WSL2.
-5. The Docker image must already exist locally.
-
-Build the image:
-
-```bash
-docker build -t hello-devops:v1 .
-```
-
-Start a development Nomad agent:
+Start a Nomad development agent:
 
 ```bash
 nomad agent -dev
 ```
 
----
+When running on Windows, the agent should be started from WSL2 so that it can access Docker Desktop.
 
-## Run the Nomad Job
+The Docker image must also exist locally:
 
-From the project directory:
+```bash
+docker build -t hello-devops:v1 .
+```
+
+### Run the Job
 
 ```bash
 nomad job run nomad/hello.nomad
-```
-
-Check the job:
-
-```bash
 nomad job status hello
 ```
 
-Retrieve the allocation ID:
-
-```bash
-nomad job status hello
-```
-
-Then inspect the allocation:
+Get the allocation ID from the job status:
 
 ```bash
 nomad alloc status <alloc-id>
-```
-
-View the application logs:
-
-```bash
 nomad alloc logs <alloc-id>
 ```
 
-Expected application output:
+### Actual Output
 
 ```text
+Client Status        = complete
+Client Description   = All tasks have completed
+...
+Recent Events:
+Time                   Type        Description
+2026-08-19T06:02:19Z  Terminated  Exit Code: 0
+2026-08-19T06:02:19Z  Started     Task started by client
+2026-08-19T06:02:18Z  Task Setup  Building Task Directory
+2026-08-19T06:02:18Z  Received    Task received by client
+```
+
+```text
+$ nomad alloc logs ab069b41
 Hello, DevOps!
 ```
 
-### Successful Allocation
-
-The actual deployment completed successfully with:
-
-```text
-Client Status       = complete
-Client Description  = All tasks have completed
-```
-
-The task terminated with:
-
-```text
-Exit Code: 0
-```
-
-This confirms that:
-
-* Nomad successfully scheduled the job.
-* Nomad successfully accessed the Docker driver.
-* The local Docker image was used.
-* The container started successfully.
-* The Python application completed successfully.
-* The allocation was marked `complete`.
+![Nomad alloc status and logs](docs/05-nomad-run.png)
 
 ---
 
-# 6. Monitoring with Grafana Loki
+## 6. Monitoring with Grafana Loki
 
-The final stage of the pipeline collects container logs using:
+Loki was run locally in Docker.
 
-* Grafana Loki
-* Promtail
-* Grafana
-
-The architecture is:
+The first log collection attempt used Promtail with Docker auto-discovery. It failed because of a Docker API version mismatch:
 
 ```text
-Docker Container
-      ↓
-Docker Logs
-      ↓
-   Promtail
-      ↓
-    Loki
-      ↓
-   Grafana
-      ↓
-   Explore
+client version 1.42 is too old
 ```
 
-## Start Loki
+The working setup uses Docker's native Loki logging driver. Container stdout/stderr is sent directly to Loki.
 
-Run Loki locally:
-
-```bash
-docker run -d \
-  --name=loki \
-  -p 3100:3100 \
-  grafana/loki:2.9.0 \
-  -config.file=/etc/loki/local-config.yaml
-```
-
-Verify that Loki is running:
-
-```bash
-docker ps
-```
-
-Loki should be available at:
+The detailed setup is in:
 
 ```text
-http://localhost:3100
+monitoring/loki_setup.txt
 ```
 
----
-
-## Start Promtail
-
-Promtail is configured using:
+The Promtail configuration used during the initial attempt is kept in:
 
 ```text
 monitoring/promtail-config.yaml
 ```
 
-Run Promtail:
+### Working Setup
+
+Start Loki:
 
 ```bash
-docker run -d \
-  --name=promtail \
-  -v /var/lib/docker/containers:/var/lib/docker/containers:ro \
-  -v "$(pwd)/monitoring/promtail-config.yaml:/etc/promtail/config.yml" \
-  grafana/promtail:2.9.0 \
-  -config.file=/etc/promtail/config.yml
+docker run -d --name=loki -p 3100:3100 grafana/loki:2.9.0 \
+  -config.file=/etc/loki/local-config.yaml
 ```
 
-Promtail reads Docker container logs and forwards them to Loki.
+Install the Docker logging driver:
+
+```bash
+docker plugin install grafana/loki-docker-driver:latest \
+  --alias loki --grant-all-permissions
+```
+
+Run the container with the Loki logging driver:
+
+```bash
+docker run --rm --name hello-run \
+  --log-driver=loki \
+  --log-opt loki-url="http://host.docker.internal:3100/loki/api/v1/push" \
+  hello-devops:v1
+```
+
+### Query the Logs
+
+```bash
+curl -G -s "http://localhost:3100/loki/api/v1/query_range" \
+  --data-urlencode 'query={container_name="hello-run"}' \
+  --data-urlencode 'limit=20' | python3 -m json.tool
+```
+
+### Actual Result
+
+```json
+"stream": {
+    "container_name": "hello-run",
+    "filename": "/var/log/docker/8e1940e67ea57d010f807fb5715069ad6ad3363726c0fa12655198aab5cb127d/json.log",
+    "host": "docker-desktop",
+    "source": "stdout"
+},
+"values": [
+    ["1787121271009687203", "Hello, DevOps!"]
+]
+```
+
+![Loki query result](docs/07-loki-query.png)
 
 ---
 
-## Query Logs in Grafana
+## 7. Extra Credit
 
-Add Loki as a Grafana data source using:
+### MLflow Tracking
+
+`mlflow/log_experiment.py` logs:
+
+* `learning_rate`
+* `epochs`
+* Accuracy for each epoch
+* Loss for each epoch
+* `hello.py` as an artifact
+
+MLflow data is stored under:
 
 ```text
-http://localhost:3100
+~/mlflow-runs/devops-intern-final
+```
+
+The storage is kept on the native Linux filesystem instead of `/mnt/c/...`. This avoids the file-copying permission issue encountered when MLflow was run from a Windows-mounted WSL2 path.
+
+Run it with:
+
+```bash
+cd mlflow
+sudo apt install -y python3-pip
+pip3 install -r requirements.txt --break-system-packages
+python3 log_experiment.py
+```
+
+**Actual output:**
+
+```text
+epoch=1 accuracy=0.561 loss=0.8564
+epoch=2 accuracy=0.6577 loss=0.694
+epoch=3 accuracy=0.7553 loss=0.5627
+epoch=4 accuracy=0.8262 loss=0.398
+epoch=5 accuracy=0.8891 loss=0.2358
+MLflow run complete.
+```
+
+![MLflow run output](docs/06-mlflow-run.png)
+
+View the run:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///$HOME/mlflow-runs/devops-intern-final/mlflow.db
 ```
 
 Then open:
 
 ```text
-Grafana → Explore
+http://localhost:5000
 ```
 
-A container log query can be performed using:
-
-```logql
-{container_name="hello"}
-```
-
-The expected result includes the application's output:
+and select:
 
 ```text
+devops-intern-final-demo
+```
+
+### VM Deployment (VirtualBox)
+
+A VirtualBox VM was created with Vagrant to run the Docker/Nomad job separately from WSL2.
+
+The Vagrant configuration is in:
+
+```text
+vm/Vagrantfile
+```
+
+The VM setup notes and troubleshooting details are in:
+
+```text
+vm/vm_setup_notes.txt
+```
+
+One issue encountered during a rebuild was a VirtualBox/Hyper-V virtualization conflict that caused boot/SSH timeouts. Enabling VirtualBox's Hyper-V paravirtualization interface resolved the issue.
+
+**Actual output from the VM:**
+
+```text
+Task Events:
+Time                   Type        Description
+2026-08-19T07:30:14Z  Terminated  Exit Code: 0
+2026-08-19T07:30:14Z  Started     Task started by client
+2026-08-19T07:30:12Z  Task Setup  Building Task Directory
+2026-08-19T07:30:12Z  Received    Task received by client
+
+$ nomad alloc logs 9600fd36
 Hello, DevOps!
 ```
 
-This verifies that the application logs successfully travelled through the monitoring pipeline:
-
-```text
-Application
-    ↓
-Docker
-    ↓
-Promtail
-    ↓
-Loki
-    ↓
-Grafana
-```
+![Nomad run inside the Vagrant/VirtualBox VM](docs/08-vm-nomad-run.png)
 
 ---
 
-# 7. Evidence / Screenshots
-
-The following screenshots can be added to the `docs/` directory to provide visual evidence of each stage.
-
-### Docker
-
-```text
-docs/docker-run.png
-```
-
-Should show:
-
-```bash
-docker build -t hello-devops:v1 .
-docker run --rm hello-devops:v1
-```
-
-and:
-
-```text
-Hello, DevOps!
-```
-
-### Nomad
-
-```text
-docs/nomad-run.png
-```
-
-Should show:
-
-* `nomad job status hello`
-* Successful allocation
-* Exit code `0`
-* `nomad alloc logs`
-* `Hello, DevOps!`
-
-### Grafana Loki
-
-```text
-docs/grafana-loki.png
-```
-
-Should show the Grafana Explore interface with a Loki query such as:
-
-```logql
-{container_name="hello"}
-```
-
-and the resulting application log.
-
----
-
-# 8. Extra Credit
-
-The optional extra-credit components were not implemented in this submission.
-
-Potential extensions include:
-
-### MLflow
-
-```text
-mlflow/
-```
-
-A dummy MLflow experiment could be added to demonstrate experiment tracking.
-
-### Virtual Machine Deployment
-
-```text
-vm/
-```
-
-A VirtualBox VM could be provisioned and used to run the Docker/Nomad workload inside a virtualized Linux environment.
-
----
-
-# 9. Repository Structure
+## Repository Structure
 
 ```text
 .
 ├── README.md
 ├── hello.py
 ├── Dockerfile
-│
 ├── scripts/
 │   └── sysinfo.sh
-│
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
-│
 ├── nomad/
 │   └── hello.nomad
-│
 ├── monitoring/
 │   ├── loki_setup.txt
 │   └── promtail-config.yaml
-│
+├── mlflow/
+│   ├── log_experiment.py
+│   └── requirements.txt
+├── vm/
+│   ├── Vagrantfile
+│   └── vm_setup_notes.txt
 └── docs/
-    ├── docker-run.png
-    ├── nomad-run.png
-    └── grafana-loki.png
+    ├── 01-github-repo.png
+    ├── 02-sysinfo.png
+    ├── 03-docker-run.png
+    ├── 04-ci-actions-list.png
+    ├── 04b-ci-run-detail.png
+    ├── 05-nomad-run.png
+    ├── 06-mlflow-run.png
+    ├── 07-loki-query.png
+    └── 08-vm-nomad-run.png
 ```
-
----
-
-# 10. End-to-End Verification
-
-The complete pipeline can be verified in the following order.
-
-### Step 1 — Run the application
-
-```bash
-python3 hello.py
-```
-
-Expected:
-
-```text
-Hello, DevOps!
-```
-
-### Step 2 — Run the system information script
-
-```bash
-./scripts/sysinfo.sh
-```
-
-### Step 3 — Build the Docker image
-
-```bash
-docker build -t hello-devops:v1 .
-```
-
-### Step 4 — Run the container
-
-```bash
-docker run --rm hello-devops:v1
-```
-
-Expected:
-
-```text
-Hello, DevOps!
-```
-
-### Step 5 — Verify CI
-
-Push the repository to GitHub and verify the workflow under:
-
-```text
-GitHub → Actions
-```
-
-### Step 6 — Deploy with Nomad
-
-```bash
-nomad job run nomad/hello.nomad
-```
-
-### Step 7 — Verify the allocation
-
-```bash
-nomad job status hello
-```
-
-The job should reach:
-
-```text
-complete
-```
-
-### Step 8 — Retrieve Nomad logs
-
-```bash
-nomad alloc logs <alloc-id>
-```
-
-Expected:
-
-```text
-Hello, DevOps!
-```
-
-### Step 9 — Verify Loki
-
-Open Grafana Explore and query:
-
-```logql
-{container_name="hello"}
-```
-
-The application log should be visible.
-
----
-
-# Conclusion
-
-This project demonstrates an end-to-end DevOps workflow using open-source tooling.
-
-The final pipeline connects source code, automation, containerization, job scheduling, and monitoring:
-
-```text
-GitHub
-  ↓
-GitHub Actions
-  ↓
-Python Application
-  ↓
-Docker Image
-  ↓
-Nomad Batch Job
-  ↓
-Docker Container
-  ↓
-Promtail
-  ↓
-Grafana Loki
-  ↓
-Grafana
-```
-
-The implementation also addresses practical deployment issues encountered during development, including Docker/Nomad integration under Windows, WSL2-based execution, appropriate Nomad job types for finite workloads, and explicit Docker image versioning.
-
-**Assessment status:** Core DevOps pipeline implemented successfully.

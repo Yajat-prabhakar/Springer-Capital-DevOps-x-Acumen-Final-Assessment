@@ -82,3 +82,4 @@ Vagrant.configure("2") do |config|
     echo "Provisioning complete: Docker and Nomad installed."
   SHELL
 end
+
